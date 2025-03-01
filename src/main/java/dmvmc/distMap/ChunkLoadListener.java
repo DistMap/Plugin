@@ -8,12 +8,16 @@ import org.bukkit.Chunk;
 public class ChunkLoadListener implements Listener {
 
     private final DistMap plugin;
-    public ChunkLoadListener(DistMap plugin) { this.plugin = plugin; }
+    public ChunkLoadListener(DistMap plugin) {
+        this.plugin = plugin;
+    }
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
         Chunk chunk = event.getChunk();
-        boolean response = plugin.sendChunkData(chunk);
+        int fileX = chunk.getX() >> 5;
+        int fileZ = chunk.getZ() >> 5;
+        plugin.queueSend(fileX, fileZ);
     }
 
 }

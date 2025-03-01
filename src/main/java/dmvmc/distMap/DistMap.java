@@ -1,7 +1,8 @@
 package dmvmc.distMap;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
+import org.bukkit.scheduler.BukkitRunnable;
+
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.*;
@@ -9,14 +10,21 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
+
 public final class DistMap extends JavaPlugin {
 
     private static final String API_SERVER = "http://localhost:3000";
     private static final String API_KEY = "42";
+    private final Map<Integer, Set<Integer>> sendQueue = new ConcurrentHashMap<>();
 
     @Override
     public void onEnable() {
         getServer().getPluginManager().registerEvents(new ChunkLoadListener(this), this);
+        manageSendQueue();
         getLogger().info("DistMap has been enabled!");
     }
 
@@ -25,19 +33,19 @@ public final class DistMap extends JavaPlugin {
         getLogger().info("DistMap has been disabled!");
     }
 
-    public boolean sendChunkData(Chunk chunk) {
+    public void queueSend(int x, int z) {
+        sendQueue.computeIfAbsent(x, k -> new CopyOnWriteArraySet<>()).add(z);
+    }
 
-        // Get chunk location
-        int regionX = chunk.getX() >> 5;
-        int regionZ = chunk.getZ() >> 5;
+    private void sendMCA(int x, int z) {
 
         // Locate chunk file
         File worldFolder = Bukkit.getWorlds().getFirst().getWorldFolder();
-        File regionFile = new File(worldFolder, "region/r." + regionX + "." + regionZ + ".mca");
+        File regionFile = new File(worldFolder, "region/r." + x + "." + z + ".mca");
 
         if (!regionFile.exists()) {
-            getLogger().warning("Region file not found: " + "r." + regionX + "." + regionZ + ".mca");
-            return false;
+            getLogger().warning("Region file not found: " + "r." + x + "." + z + ".mca");
+            return;
         }
 
         // Create http connection to the API server
@@ -55,11 +63,10 @@ public final class DistMap extends JavaPlugin {
 
         } catch (URISyntaxException | MalformedURLException | ProtocolException e) {
             getLogger().info("Invalid API URL!");
-            return false;
-        }
-        catch (IOException e) {
+            return;
+        } catch (IOException e) {
             getLogger().info("Error opening connection to server");
-            return false;
+            return;
         }
 
         // Write file to http connection
@@ -82,18 +89,32 @@ public final class DistMap extends JavaPlugin {
 
         } catch (IOException e) {
             getLogger().info("Error sending region file!");
-            return false;
+            return;
         }
 
         // Return response observation
         try {
             int responseCode = connection.getResponseCode();
-            return responseCode == 200;
+            if (responseCode != 200)
+                getLogger().info("DistMap error response code: " + responseCode);
         } catch (IOException e) {
             getLogger().info("Error connecting to server!");
-            return false;
         }
 
+    }
+
+    private void manageSendQueue() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (sendQueue.isEmpty())
+                    return;
+
+                sendQueue.forEach((x, k) -> k.forEach(z -> sendMCA(x, z)));
+                sendQueue.clear();
+
+            }
+        }.runTaskTimer(this, 5 * 20L, 5 * 20L);
     }
 
 }

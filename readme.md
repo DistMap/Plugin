@@ -1,3 +1,3 @@
 Minecraft plugin to send world data to an http endpoint.
 
-# DO NOT USE THIS YET, AS OF RIGHT NOW IT JUST SENDS THE .MCA TO LOCALHOST:3000 THROUGH A POST REQUEST EVERY TIME A CHUNK LOADS
+### Currently just sends relevant .mca files in a POST request to http://localhost:3000 every 5 seconds
