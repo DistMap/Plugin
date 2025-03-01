@@ -1,0 +1,4 @@
+name: DistMap
+version: '1.0'
+main: dmvmc.distMap.DistMap
+api-version: '1.21'
