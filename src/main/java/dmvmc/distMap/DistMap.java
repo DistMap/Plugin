@@ -29,6 +29,7 @@ public final class DistMap extends JavaPlugin {
         saveDefaultConfig();
         loadNewConfig();
 
+        getCommand("updateconfig").setExecutor(new UpdateConfigCommand(this));
         getServer().getPluginManager().registerEvents(new ChunkLoadListener(this), this);
         manageSendQueue();
         getLogger().info("DistMap has been enabled!");
@@ -39,11 +40,7 @@ public final class DistMap extends JavaPlugin {
         getLogger().info("DistMap has been disabled!");
     }
 
-    public void queueSend(int x, int z) {
-        sendQueue.computeIfAbsent(x, k -> new CopyOnWriteArraySet<>()).add(z);
-    }
-
-    private void loadNewConfig() {
+    public void loadNewConfig() {
 
         reloadConfig();
         FileConfiguration config = getConfig();
@@ -54,6 +51,10 @@ public final class DistMap extends JavaPlugin {
 
         getLogger().info("SEND EVERY " + UPDATE_FREQUENCY + "ms");
 
+    }
+
+    public void queueSend(int x, int z) {
+        sendQueue.computeIfAbsent(x, k -> new CopyOnWriteArraySet<>()).add(z);
     }
 
     private void sendMCA(int x, int z) {

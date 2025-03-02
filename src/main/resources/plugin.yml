@@ -2,3 +2,14 @@ name: DistMap
 version: '1.0'
 main: dmvmc.distMap.DistMap
 api-version: '1.21'
+
+commands:
+  updateconfig:
+    description: Updates the distmap configuration file
+    usage: updatedismapconfig <property> <value>
+    permission: distMap.update
+
+permissions:
+  distMap.update:
+    description: Allows the player to update the distMap configuration file
+    default: op
