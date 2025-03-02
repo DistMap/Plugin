@@ -34,7 +34,7 @@ public class UpdateConfigCommand implements CommandExecutor {
         // Update config
         plugin.getConfig().set(args[0], args[1]);
         plugin.saveConfig();
-        plugin.loadNewConfig();
+        plugin.restartUpdateTask();
         return true;
 
     }

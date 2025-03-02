@@ -21,18 +21,23 @@ public final class DistMap extends JavaPlugin {
     private static String API_ENDPOINT;
     private static String API_KEY;
     private static Long UPDATE_FREQUENCY;
-    private final Map<Integer, Set<Integer>> sendQueue = new ConcurrentHashMap<>();
+    private final Map<Integer, Set<Integer>> updateQueue = new ConcurrentHashMap<>();
+    private BukkitRunnable updateRunnable;
 
     @Override
     public void onEnable() {
 
+        // Start update runnable
         saveDefaultConfig();
         loadNewConfig();
+        startUpdateTask();
 
+        // Register command and tab completer
         getCommand("updateconfig").setExecutor(new UpdateConfigCommand(this));
         getCommand("updateconfig").setTabCompleter(new UpdateConfigCommandTabCompleter(this));
+
+        // Register events
         getServer().getPluginManager().registerEvents(new ChunkLoadListener(this), this);
-        manageSendQueue();
         getLogger().info("DistMap has been enabled!");
     }
 
@@ -48,14 +53,14 @@ public final class DistMap extends JavaPlugin {
 
         API_ENDPOINT = config.getString("API_ENDPOINT");
         API_KEY = config.getString("API_KEY");
-        UPDATE_FREQUENCY = config.getInt("UPDATE_FREQUENCY") * 20L;
+        UPDATE_FREQUENCY = Integer.parseInt(config.getString("UPDATE_FREQUENCY")) * 20L;
 
-        getLogger().info("SEND EVERY " + UPDATE_FREQUENCY + "ms");
+        getLogger().info("DistMap updating every " + (UPDATE_FREQUENCY * 20) + "ms");
 
     }
 
     public void queueSend(int x, int z) {
-        sendQueue.computeIfAbsent(x, k -> new CopyOnWriteArraySet<>()).add(z);
+        updateQueue.computeIfAbsent(x, k -> new CopyOnWriteArraySet<>()).add(z);
     }
 
     private void sendMCA(int x, int z) {
@@ -65,7 +70,7 @@ public final class DistMap extends JavaPlugin {
         File regionFile = new File(worldFolder, "region/r." + x + "." + z + ".mca");
 
         if (!regionFile.exists()) {
-            getLogger().warning("Region file not found: " + "r." + x + "." + z + ".mca");
+            getLogger().warning("DistMap - Region file not found: " + "r." + x + "." + z + ".mca");
             return;
         }
 
@@ -83,10 +88,10 @@ public final class DistMap extends JavaPlugin {
             connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
 
         } catch (URISyntaxException | MalformedURLException | ProtocolException e) {
-            getLogger().info("Invalid API URL!");
+            getLogger().info("DistMap - Invalid API URL!");
             return;
         } catch (IOException e) {
-            getLogger().info("Error opening connection to server");
+            getLogger().info("DistMap - opening connection to server");
             return;
         }
 
@@ -109,7 +114,7 @@ public final class DistMap extends JavaPlugin {
             writer.flush();
 
         } catch (IOException e) {
-            getLogger().info("Error sending region file!");
+            getLogger().info("DistMap - Error sending region file!");
             return;
         }
 
@@ -117,25 +122,40 @@ public final class DistMap extends JavaPlugin {
         try {
             int responseCode = connection.getResponseCode();
             if (responseCode != 200)
-                getLogger().info("DistMap error response code: " + responseCode);
+                getLogger().info("DistMap - Error response code: " + responseCode);
         } catch (IOException e) {
-            getLogger().info("Error connecting to server!");
+            getLogger().info("DistMap - Error connecting to server!");
         }
 
     }
 
-    private void manageSendQueue() {
-        new BukkitRunnable() {
+    private void stopUpdateTask() {
+        if (updateRunnable != null) {
+            updateRunnable.cancel();
+        }
+    }
+
+    private void startUpdateTask() {
+        updateRunnable = new BukkitRunnable() {
             @Override
             public void run() {
-                if (sendQueue.isEmpty())
+                if (updateQueue.isEmpty())
                     return;
 
-                sendQueue.forEach((x, k) -> k.forEach(z -> sendMCA(x, z)));
-                sendQueue.clear();
+                updateQueue.forEach((x, k) -> k.forEach(z -> sendMCA(x, z)));
+                updateQueue.clear();
 
             }
-        }.runTaskTimer(this, UPDATE_FREQUENCY, UPDATE_FREQUENCY);
+        };
+
+        // Set runnable timer to config interval
+        updateRunnable.runTaskTimer(this, UPDATE_FREQUENCY, UPDATE_FREQUENCY);
+    }
+
+    public void restartUpdateTask() {
+        loadNewConfig();
+        stopUpdateTask();
+        startUpdateTask();
     }
 
 }
