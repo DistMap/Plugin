@@ -30,6 +30,7 @@ public final class DistMap extends JavaPlugin {
         loadNewConfig();
 
         getCommand("updateconfig").setExecutor(new UpdateConfigCommand(this));
+        getCommand("updateconfig").setTabCompleter(new UpdateConfigCommandTabCompleter(this));
         getServer().getPluginManager().registerEvents(new ChunkLoadListener(this), this);
         manageSendQueue();
         getLogger().info("DistMap has been enabled!");
