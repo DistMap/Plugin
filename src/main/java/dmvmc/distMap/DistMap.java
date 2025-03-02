@@ -43,6 +43,7 @@ public final class DistMap extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        stopUpdateTask();
         getLogger().info("DistMap has been disabled!");
     }
 
@@ -114,6 +115,7 @@ public final class DistMap extends JavaPlugin {
             writer.flush();
 
         } catch (IOException e) {
+            connection.disconnect();
             getLogger().info("DistMap - Error sending region file!");
             return;
         }
@@ -126,6 +128,9 @@ public final class DistMap extends JavaPlugin {
         } catch (IOException e) {
             getLogger().info("DistMap - Error connecting to server!");
         }
+
+        // Close HTTP connection
+        connection.disconnect();
 
     }
 
