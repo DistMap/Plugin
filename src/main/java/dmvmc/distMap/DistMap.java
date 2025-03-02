@@ -1,6 +1,7 @@
 package dmvmc.distMap;
 
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import org.bukkit.plugin.java.JavaPlugin;
@@ -17,12 +18,17 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 public final class DistMap extends JavaPlugin {
 
-    private static final String API_SERVER = "http://localhost:3000";
-    private static final String API_KEY = "42";
+    private static String API_ENDPOINT;
+    private static String API_KEY;
+    private static Long UPDATE_FREQUENCY;
     private final Map<Integer, Set<Integer>> sendQueue = new ConcurrentHashMap<>();
 
     @Override
     public void onEnable() {
+
+        saveDefaultConfig();
+        loadNewConfig();
+
         getServer().getPluginManager().registerEvents(new ChunkLoadListener(this), this);
         manageSendQueue();
         getLogger().info("DistMap has been enabled!");
@@ -35,6 +41,19 @@ public final class DistMap extends JavaPlugin {
 
     public void queueSend(int x, int z) {
         sendQueue.computeIfAbsent(x, k -> new CopyOnWriteArraySet<>()).add(z);
+    }
+
+    private void loadNewConfig() {
+
+        reloadConfig();
+        FileConfiguration config = getConfig();
+
+        API_ENDPOINT = config.getString("API_ENDPOINT");
+        API_KEY = config.getString("API_KEY");
+        UPDATE_FREQUENCY = config.getInt("UPDATE_FREQUENCY") * 20L;
+
+        getLogger().info("SEND EVERY " + UPDATE_FREQUENCY + "ms");
+
     }
 
     private void sendMCA(int x, int z) {
@@ -55,7 +74,7 @@ public final class DistMap extends JavaPlugin {
         try {
 
             // Build connection and set properties
-            connection = (HttpURLConnection) new URI(API_SERVER).toURL().openConnection();
+            connection = (HttpURLConnection) new URI(API_ENDPOINT).toURL().openConnection();
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
             connection.setRequestProperty("API-Key", API_KEY);
@@ -114,7 +133,7 @@ public final class DistMap extends JavaPlugin {
                 sendQueue.clear();
 
             }
-        }.runTaskTimer(this, 5 * 20L, 5 * 20L);
+        }.runTaskTimer(this, UPDATE_FREQUENCY, UPDATE_FREQUENCY);
     }
 
 }
